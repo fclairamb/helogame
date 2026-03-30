@@ -282,12 +282,50 @@ function createKingWalkTexture(scene) {
     g.destroy();
 }
 
+function createBombTexture(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    // Bomb body (black circle)
+    g.fillStyle(0x222222);
+    g.fillCircle(12, 16, 10);
+    // Fuse
+    g.lineStyle(2, 0x8b4513);
+    g.beginPath();
+    g.moveTo(12, 6);
+    g.lineTo(14, 2);
+    g.lineTo(18, 0);
+    g.strokePath();
+    // Spark
+    g.fillStyle(0xff6600);
+    g.fillCircle(18, 0, 3);
+    g.fillStyle(0xffff00);
+    g.fillCircle(18, 0, 1.5);
+    // Highlight
+    g.fillStyle(0x555555);
+    g.fillCircle(9, 13, 3);
+    g.generateTexture('bomb', 24, 28);
+    g.destroy();
+}
+
+function createExplosionTexture(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xff4400, 0.8);
+    g.fillCircle(32, 32, 32);
+    g.fillStyle(0xff8800, 0.6);
+    g.fillCircle(32, 32, 22);
+    g.fillStyle(0xffcc00, 0.5);
+    g.fillCircle(32, 32, 12);
+    g.generateTexture('explosion', 64, 64);
+    g.destroy();
+}
+
 class GameScene extends Phaser.Scene {
     constructor() {
         super('game');
     }
 
     create() {
+        this.gameOver = false;
+
         // Generate textures
         createPrincessTexture(this);
         createWalkTexture(this);
@@ -297,22 +335,24 @@ class GameScene extends Phaser.Scene {
         createPoliceCarTexture(this);
         createKingTexture(this);
         createKingWalkTexture(this);
+        createBombTexture(this);
+        createExplosionTexture(this);
 
         // Sky gradient background
         this.cameras.main.setBackgroundColor('#87ceeb');
 
-        // Build the world - a long ground platform
-        this.groundGroup = this.physics.add.staticGroup();
-
         const worldWidth = 6400;
 
-        // Ground: grass on top, dirt below
+        // Ground (flat) - separate group so cars only collide with this
+        this.groundGroup = this.physics.add.staticGroup();
         for (let x = 0; x < worldWidth; x += TILE) {
             this.groundGroup.create(x + TILE / 2, 568, 'grass');
             this.groundGroup.create(x + TILE / 2, 600, 'dirt');
         }
 
-        // Some platforms (lower, reachable with jump)
+        // Platforms (elevated green blocks) - separate group, cars don't collide
+        this.platformGroup = this.physics.add.staticGroup();
+        this.platformTiles = []; // track individual tiles for explosion
         const platforms = [
             { x: 400, y: 500, len: 4 },
             { x: 700, y: 470, len: 3 },
@@ -324,7 +364,8 @@ class GameScene extends Phaser.Scene {
         ];
         for (const p of platforms) {
             for (let i = 0; i < p.len; i++) {
-                this.groundGroup.create(p.x + i * TILE + TILE / 2, p.y, 'grass');
+                const tile = this.platformGroup.create(p.x + i * TILE + TILE / 2, p.y, 'grass');
+                this.platformTiles.push(tile);
             }
         }
 
@@ -344,7 +385,7 @@ class GameScene extends Phaser.Scene {
             this.add.image(fx, 550, 'flower');
         }
 
-        // Police cars - placed on flat ground, away from platforms
+        // Police cars - only collide with ground, NOT platforms
         this.policeCars = this.physics.add.group();
         const carPositions = [300, 950, 1900, 3000, 4200];
         for (const cx of carPositions) {
@@ -357,10 +398,16 @@ class GameScene extends Phaser.Scene {
             car.body.setMass(1000);
         }
         this.physics.add.collider(this.policeCars, this.groundGroup);
+        // NO collider between policeCars and platformGroup
 
         // Driving state
         this.inCar = false;
         this.currentCar = null;
+
+        // Lives
+        this.princessLives = 3;
+        this.kingLives = 3;
+        this.respawning = false;
 
         // Princess
         this.princess = this.physics.add.sprite(100, 500, 'princess');
@@ -401,27 +448,50 @@ class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.collider(this.king, this.groundGroup);
+        this.physics.add.collider(this.king, this.platformGroup);
         this.physics.add.collider(this.king, this.policeCars);
 
-        // Collision
+        // Collision - princess collides with both ground and platforms
         this.physics.add.collider(this.princess, this.groundGroup);
+        this.physics.add.collider(this.princess, this.platformGroup);
 
-        // Collide with police cars - landing on top enters the car
+        // Collide with police cars - track when on top
         this.physics.add.collider(this.princess, this.policeCars, (princess, car) => {
             if (princess.body.touching.down && car.body.touching.up) {
-                this.landedOnCar = car;
+                this.onTopOfCar = car;
             }
             this.nearCar = car;
         });
 
         // Enter/exit car cooldown
         this.enterCarCooldown = 0;
-        this.landedOnCar = null;
+        this.onTopOfCar = null;
+
+        // Bomb pickups
+        this.bombs = this.physics.add.group();
+        this.bombCount = 0;
+        const bombPositions = [500, 850, 1300, 1800, 2300, 2800, 3400, 4000, 4600, 5200];
+        for (const bx of bombPositions) {
+            const bomb = this.bombs.create(bx, 520, 'bomb');
+            bomb.body.setGravityY(GRAVITY);
+            bomb.body.setSize(20, 24);
+            bomb.setBounce(0.3);
+        }
+        this.physics.add.collider(this.bombs, this.groundGroup);
+        this.physics.add.collider(this.bombs, this.platformGroup);
+        this.physics.add.overlap(this.princess, this.bombs, (princess, bomb) => {
+            bomb.destroy();
+            this.bombCount++;
+            this.updateUI();
+        });
+
+        // Space key for using bombs
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
         // Camera
         this.cameras.main.startFollow(this.princess, true, 0.1, 0.1);
         this.cameras.main.setDeadzone(100, 50);
-        this.physics.world.setBounds(0, 0, worldWidth, 620);
+        this.physics.world.setBounds(0, 0, worldWidth, 800);
 
         // Controls
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -429,7 +499,7 @@ class GameScene extends Phaser.Scene {
         this.autoWalk = true;
 
         // UI text
-        this.uiText = this.add.text(16, 16, 'Arrows: move/jump | Down: enter/exit police car', {
+        this.uiText = this.add.text(16, 16, '', {
             fontSize: '16px',
             fill: '#fff',
             backgroundColor: '#00000066',
@@ -438,31 +508,115 @@ class GameScene extends Phaser.Scene {
         this.uiText.setScrollFactor(0);
         this.uiText.setDepth(10);
 
+        // Lives display - right side of screen
+        this.princessLivesText = this.add.text(784, 16, '', {
+            fontSize: '18px',
+            fill: '#ff69b4',
+            fontStyle: 'bold',
+            stroke: '#000',
+            strokeThickness: 2,
+        });
+        this.princessLivesText.setOrigin(1, 0);
+        this.princessLivesText.setScrollFactor(0);
+        this.princessLivesText.setDepth(10);
+
+        this.kingLivesText = this.add.text(784, 40, '', {
+            fontSize: '18px',
+            fill: '#2244aa',
+            fontStyle: 'bold',
+            stroke: '#000',
+            strokeThickness: 2,
+        });
+        this.kingLivesText.setOrigin(1, 0);
+        this.kingLivesText.setScrollFactor(0);
+        this.kingLivesText.setDepth(10);
+
+        this.updateUI();
+
+        // Game over text (hidden)
+        this.gameOverText = this.add.text(400, 250, 'GAME OVER', {
+            fontSize: '64px',
+            fill: '#ff0000',
+            fontStyle: 'bold',
+            stroke: '#000',
+            strokeThickness: 6,
+        });
+        this.gameOverText.setOrigin(0.5);
+        this.gameOverText.setScrollFactor(0);
+        this.gameOverText.setDepth(20);
+        this.gameOverText.setVisible(false);
+
+        this.restartText = this.add.text(400, 330, 'Press SPACE to restart', {
+            fontSize: '24px',
+            fill: '#fff',
+            stroke: '#000',
+            strokeThickness: 3,
+        });
+        this.restartText.setOrigin(0.5);
+        this.restartText.setScrollFactor(0);
+        this.restartText.setDepth(20);
+        this.restartText.setVisible(false);
+
         // Walking frame timer
         this.walkTimer = 0;
     }
 
+    updateUI() {
+        const bombText = this.bombCount > 0 ? ` | Bombs: ${this.bombCount} (SPACE)` : '';
+        this.uiText.setText(`Arrows: move/jump | Down: enter car | Up: exit car${bombText}`);
+        const princessHearts = '\u2764'.repeat(this.princessLives) + '\u2661'.repeat(3 - this.princessLives);
+        const kingHearts = '\u2764'.repeat(this.kingLives) + '\u2661'.repeat(3 - this.kingLives);
+        this.princessLivesText.setText(`Princess ${princessHearts}`);
+        this.kingLivesText.setText(`Prince ${kingHearts}`);
+    }
+
     update(time, delta) {
-        // Handle enter/exit car (using flags set by collider in previous frame)
-        if (this.cursors.down.isDown && time > this.enterCarCooldown) {
-            if (this.inCar) {
+        if (this.gameOver) {
+            if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                this.scene.restart();
+            }
+            return;
+        }
+
+        // Check death: falling off the world
+        if (this.princess.y > 700 && !this.respawning) {
+            this.princessLives--;
+            this.updateUI();
+            if (this.princessLives <= 0) {
+                this.triggerGameOver('The princess lost all lives!');
+                return;
+            }
+            this.respawnPrincess();
+        }
+        if (this.king.y > 700 && !this.respawning) {
+            this.kingLives--;
+            this.updateUI();
+            if (this.kingLives <= 0) {
+                this.triggerGameOver('The prince lost all lives!');
+                return;
+            }
+            this.respawnKing();
+        }
+
+        // Use bomb
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.bombCount > 0 && !this.inCar) {
+            this.useBomb();
+        }
+
+        // Handle enter/exit car
+        if (time > this.enterCarCooldown) {
+            if (this.inCar && this.cursors.up.isDown) {
                 this.exitCar();
                 this.enterCarCooldown = time + 500;
-            } else if (this.nearCar) {
-                this.enterCar(this.nearCar);
+            } else if (!this.inCar && this.cursors.down.isDown && this.onTopOfCar) {
+                this.enterCar(this.onTopOfCar);
                 this.enterCarCooldown = time + 500;
             }
         }
 
-        // Jump onto car = enter it
-        if (this.landedOnCar && !this.inCar && time > this.enterCarCooldown) {
-            this.enterCar(this.landedOnCar);
-            this.enterCarCooldown = time + 500;
-        }
-
         // Reset collision flags for next frame
         this.nearCar = null;
-        this.landedOnCar = null;
+        this.onTopOfCar = null;
 
         if (this.inCar) {
             this.updateDriving(time);
@@ -473,6 +627,96 @@ class GameScene extends Phaser.Scene {
         this.updateKing();
     }
 
+    triggerGameOver(reason) {
+        this.gameOver = true;
+        this.gameOverText.setVisible(true);
+        this.restartText.setText(`${reason}\nPress SPACE to restart`);
+        this.restartText.setVisible(true);
+        this.princess.setVelocity(0, 0);
+        this.princess.body.enable = false;
+        this.king.setVelocity(0, 0);
+        this.king.body.enable = false;
+        if (this.currentCar) {
+            this.currentCar.setVelocityX(0);
+        }
+    }
+
+    respawnPrincess() {
+        this.respawning = true;
+        if (this.inCar) {
+            this.exitCar();
+        }
+        // Respawn near the king or at start
+        const respawnX = this.king.y < 700 ? this.king.x - 40 : 100;
+        this.princess.setPosition(respawnX, 400);
+        this.princess.setVelocity(0, 0);
+        this.princess.setAlpha(0.5);
+        this.time.delayedCall(1500, () => {
+            this.princess.setAlpha(1);
+            this.respawning = false;
+        });
+    }
+
+    respawnKing() {
+        this.respawning = true;
+        // Respawn near the princess
+        const respawnX = this.princess.y < 700 ? this.princess.x - 40 : 100;
+        this.king.setPosition(respawnX, 400);
+        this.king.setVelocity(0, 0);
+        this.king.setAlpha(0.5);
+        this.time.delayedCall(1500, () => {
+            this.king.setAlpha(1);
+            this.respawning = false;
+        });
+    }
+
+    useBomb() {
+        this.bombCount--;
+        this.updateUI();
+
+        const px = this.princess.x;
+        const py = this.princess.y;
+        const explosionRadius = TILE * 4;
+
+        // Visual explosion
+        const exp = this.add.image(px, py, 'explosion');
+        exp.setScale(3);
+        exp.setAlpha(0.9);
+        exp.setDepth(15);
+        this.tweens.add({
+            targets: exp,
+            alpha: 0,
+            scale: 5,
+            duration: 500,
+            onComplete: () => exp.destroy(),
+        });
+
+        // Camera shake
+        this.cameras.main.shake(300, 0.01);
+
+        // Destroy platform tiles in radius (all directions)
+        for (let i = this.platformTiles.length - 1; i >= 0; i--) {
+            const tile = this.platformTiles[i];
+            if (!tile.active) continue;
+            const dist = Phaser.Math.Distance.Between(px, py, tile.x, tile.y);
+            if (dist <= explosionRadius) {
+                // Small explosion particle at tile position
+                const tileExp = this.add.image(tile.x, tile.y, 'explosion');
+                tileExp.setScale(1);
+                tileExp.setDepth(15);
+                this.tweens.add({
+                    targets: tileExp,
+                    alpha: 0,
+                    scale: 1.5,
+                    duration: 400,
+                    onComplete: () => tileExp.destroy(),
+                });
+                tile.destroy();
+                this.platformTiles.splice(i, 1);
+            }
+        }
+    }
+
     enterCar(car) {
         this.inCar = true;
         this.currentCar = car;
@@ -481,6 +725,12 @@ class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(car, true, 0.1, 0.1);
         this.autoWalk = false;
         car.setTint(0xddddff);
+
+        // Siren for 1 second on entry
+        this.sirenActive = true;
+        this.time.delayedCall(1000, () => {
+            this.sirenActive = false;
+        });
     }
 
     exitCar() {
@@ -501,7 +751,7 @@ class GameScene extends Phaser.Scene {
         const dx = target.x - this.king.x;
         const dist = Math.abs(dx);
         const kingOnGround = this.king.body.touching.down;
-        const kingSpeed = WALK_SPEED * 0.7;
+        const kingSpeed = this.inCar ? CAR_SPEED * 0.8 : WALK_SPEED * 0.7;
 
         if (dist > 80) {
             // Walk toward princess
@@ -546,11 +796,15 @@ class GameScene extends Phaser.Scene {
             car.setVelocityX(car.body.velocity.x * 0.95); // friction
         }
 
-        // Siren flash effect
-        if (Math.floor(time / 200) % 2 === 0) {
-            car.setTint(0xffaaaa);
+        // Siren flash effect (only during siren activation)
+        if (this.sirenActive) {
+            if (Math.floor(time / 100) % 2 === 0) {
+                car.setTint(0xff0000);
+            } else {
+                car.setTint(0x0066ff);
+            }
         } else {
-            car.setTint(0xaaaaff);
+            car.setTint(0xddddff);
         }
     }
 
