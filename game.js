@@ -559,6 +559,70 @@ class GameScene extends Phaser.Scene {
 
         // Walking frame timer
         this.walkTimer = 0;
+
+        // Touch controls
+        this.touchInput = { left: false, right: false, up: false, down: false, space: false };
+        this.isMobile = !this.sys.game.device.os.desktop;
+        if (this.isMobile) {
+            this.createTouchControls();
+        }
+    }
+
+    createTouchControls() {
+        const btnAlpha = 0.35;
+        const btnDepth = 30;
+        const g = this.add.graphics();
+        g.setScrollFactor(0);
+        g.setDepth(btnDepth - 1);
+        g.setAlpha(btnAlpha);
+
+        // Left button
+        g.fillStyle(0xffffff);
+        g.fillCircle(70, 520, 36);
+        const leftZone = this.add.zone(70, 520, 72, 72).setScrollFactor(0).setDepth(btnDepth).setInteractive();
+        this.add.text(70, 520, '\u25C0', { fontSize: '28px', fill: '#000' }).setOrigin(0.5).setScrollFactor(0).setDepth(btnDepth).setAlpha(0.6);
+
+        // Right button
+        g.fillCircle(180, 520, 36);
+        const rightZone = this.add.zone(180, 520, 72, 72).setScrollFactor(0).setDepth(btnDepth).setInteractive();
+        this.add.text(180, 520, '\u25B6', { fontSize: '28px', fill: '#000' }).setOrigin(0.5).setScrollFactor(0).setDepth(btnDepth).setAlpha(0.6);
+
+        // Jump button (up)
+        g.fillStyle(0x88ff88);
+        g.fillCircle(700, 480, 40);
+        const jumpZone = this.add.zone(700, 480, 80, 80).setScrollFactor(0).setDepth(btnDepth).setInteractive();
+        this.add.text(700, 480, '\u25B2', { fontSize: '32px', fill: '#000' }).setOrigin(0.5).setScrollFactor(0).setDepth(btnDepth).setAlpha(0.6);
+
+        // Down button (enter car)
+        g.fillStyle(0x88aaff);
+        g.fillCircle(700, 560, 28);
+        const downZone = this.add.zone(700, 560, 56, 56).setScrollFactor(0).setDepth(btnDepth).setInteractive();
+        this.add.text(700, 560, '\u25BC', { fontSize: '22px', fill: '#000' }).setOrigin(0.5).setScrollFactor(0).setDepth(btnDepth).setAlpha(0.6);
+
+        // Bomb button
+        g.fillStyle(0xff6644);
+        g.fillCircle(600, 530, 30);
+        const bombZone = this.add.zone(600, 530, 60, 60).setScrollFactor(0).setDepth(btnDepth).setInteractive();
+        this.add.text(600, 530, '\uD83D\uDCA3', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(btnDepth).setAlpha(0.7);
+
+        // Wire up touch events
+        const wire = (zone, key) => {
+            zone.on('pointerdown', () => { this.touchInput[key] = true; });
+            zone.on('pointerup', () => { this.touchInput[key] = false; });
+            zone.on('pointerout', () => { this.touchInput[key] = false; });
+        };
+        wire(leftZone, 'left');
+        wire(rightZone, 'right');
+        wire(jumpZone, 'up');
+        wire(downZone, 'down');
+        wire(bombZone, 'space');
+
+        // Enable multi-touch
+        this.input.addPointer(2);
+    }
+
+    isDown(key) {
+        return this.cursors[key].isDown || this.touchInput[key];
     }
 
     updateUI() {
@@ -572,7 +636,8 @@ class GameScene extends Phaser.Scene {
 
     update(time, delta) {
         if (this.gameOver) {
-            if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || this.touchInput.space) {
+                this.touchInput.space = false;
                 this.scene.restart();
             }
             return;
@@ -598,17 +663,19 @@ class GameScene extends Phaser.Scene {
             this.respawnKing();
         }
 
-        // Use bomb
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.bombCount > 0 && !this.inCar) {
+        // Use bomb (keyboard or touch)
+        const bombTouchJust = this.touchInput.space && !this._lastBombTouch;
+        this._lastBombTouch = this.touchInput.space;
+        if ((Phaser.Input.Keyboard.JustDown(this.spaceKey) || bombTouchJust) && this.bombCount > 0 && !this.inCar) {
             this.useBomb();
         }
 
         // Handle enter/exit car
         if (time > this.enterCarCooldown) {
-            if (this.inCar && this.cursors.up.isDown) {
+            if (this.inCar && this.isDown('up')) {
                 this.exitCar();
                 this.enterCarCooldown = time + 500;
-            } else if (!this.inCar && this.cursors.down.isDown && this.onTopOfCar) {
+            } else if (!this.inCar && this.isDown('down') && this.onTopOfCar) {
                 this.enterCar(this.onTopOfCar);
                 this.enterCarCooldown = time + 500;
             }
@@ -630,7 +697,8 @@ class GameScene extends Phaser.Scene {
     triggerGameOver(reason) {
         this.gameOver = true;
         this.gameOverText.setVisible(true);
-        this.restartText.setText(`${reason}\nPress SPACE to restart`);
+        const restartHint = this.isMobile ? 'Tap bomb button to restart' : 'Press SPACE to restart';
+        this.restartText.setText(`${reason}\n${restartHint}`);
         this.restartText.setVisible(true);
         this.princess.setVelocity(0, 0);
         this.princess.body.enable = false;
@@ -786,10 +854,10 @@ class GameScene extends Phaser.Scene {
 
     updateDriving(time) {
         const car = this.currentCar;
-        if (this.cursors.left.isDown) {
+        if (this.isDown('left')) {
             car.setVelocityX(-CAR_SPEED);
             car.setFlipX(true);
-        } else if (this.cursors.right.isDown) {
+        } else if (this.isDown('right')) {
             car.setVelocityX(CAR_SPEED);
             car.setFlipX(false);
         } else {
@@ -812,12 +880,12 @@ class GameScene extends Phaser.Scene {
         const onGround = this.princess.body.touching.down;
         let moving = false;
 
-        if (this.cursors.left.isDown) {
+        if (this.isDown('left')) {
             this.princess.setVelocityX(-WALK_SPEED);
             this.facingRight = false;
             this.autoWalk = false;
             moving = true;
-        } else if (this.cursors.right.isDown) {
+        } else if (this.isDown('right')) {
             this.princess.setVelocityX(WALK_SPEED);
             this.facingRight = true;
             this.autoWalk = false;
@@ -830,7 +898,7 @@ class GameScene extends Phaser.Scene {
             this.princess.setVelocityX(0);
         }
 
-        if (this.cursors.up.isDown && onGround) {
+        if (this.isDown('up') && onGround) {
             this.princess.setVelocityY(JUMP_SPEED);
         }
 
@@ -844,7 +912,7 @@ class GameScene extends Phaser.Scene {
         }
 
         // Re-enable auto-walk when no keys pressed for a bit
-        if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+        if (!this.isDown('left') && !this.isDown('right')) {
             if (!this.autoWalkTimer) {
                 this.autoWalkTimer = time;
             } else if (time - this.autoWalkTimer > 2000) {
@@ -868,6 +936,10 @@ const config = {
             gravity: { y: 0 },
             debug: false,
         },
+    },
+    input: {
+        activePointers: 4,
+        touch: true,
     },
     scene: GameScene,
     pixelArt: true,
