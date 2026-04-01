@@ -282,6 +282,146 @@ function createKingWalkTexture(scene) {
     g.destroy();
 }
 
+function createCastleTexture(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const w = 200, h = 220;
+
+    // Main body (stone gray)
+    g.fillStyle(0x999999);
+    g.fillRect(20, 60, 160, 160);
+
+    // Towers (left & right)
+    g.fillStyle(0x888888);
+    g.fillRect(0, 30, 40, 190);
+    g.fillRect(160, 30, 40, 190);
+
+    // Tower tops (crenellations)
+    g.fillStyle(0x777777);
+    for (let i = 0; i < 40; i += 12) {
+        g.fillRect(i, 20, 8, 14);
+        g.fillRect(160 + i, 20, 8, 14);
+    }
+    // Main wall crenellations
+    for (let i = 40; i < 160; i += 14) {
+        g.fillRect(i, 50, 10, 14);
+    }
+
+    // Big center tower
+    g.fillStyle(0x888888);
+    g.fillRect(60, 10, 80, 60);
+    for (let i = 60; i < 140; i += 14) {
+        g.fillRect(i, 0, 10, 14);
+    }
+
+    // Gate (dark archway)
+    g.fillStyle(0x442200);
+    g.fillRect(70, 140, 60, 80);
+    g.fillStyle(0x442200);
+    g.fillCircle(100, 140, 30);
+
+    // Windows
+    g.fillStyle(0x88ccff);
+    g.fillRect(12, 80, 16, 20);
+    g.fillRect(172, 80, 16, 20);
+    g.fillRect(80, 30, 14, 18);
+    g.fillRect(106, 30, 14, 18);
+
+    // Flag pole on top
+    g.fillStyle(0x654321);
+    g.fillRect(98, -20, 4, 30);
+    // Flag (pink)
+    g.fillStyle(0xff69b4);
+    g.fillTriangle(102, -20, 102, -5, 120, -12);
+
+    g.generateTexture('castle', w, h);
+    g.destroy();
+}
+
+function createAmbulanceTexture(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    // Body (white)
+    g.fillStyle(0xffffff);
+    g.fillRect(10, 12, 80, 32);
+    // Back box (taller)
+    g.fillRect(4, 4, 50, 40);
+    // Red stripe
+    g.fillStyle(0xff0000);
+    g.fillRect(4, 28, 86, 4);
+    // Red cross on side
+    g.fillStyle(0xff0000);
+    g.fillRect(20, 10, 16, 4);
+    g.fillRect(26, 6, 4, 12);
+    // Windshield
+    g.fillStyle(0x88ccff);
+    g.fillRect(60, 14, 16, 14);
+    // Back window
+    g.fillStyle(0x88ccff);
+    g.fillRect(8, 8, 12, 12);
+    // Light bar (red + white)
+    g.fillStyle(0xff0000);
+    g.fillRect(14, 0, 10, 5);
+    g.fillStyle(0xffffff);
+    g.fillRect(26, 0, 10, 5);
+    // Wheels
+    g.fillStyle(0x222222);
+    g.fillCircle(24, 46, 7);
+    g.fillCircle(74, 46, 7);
+    g.fillStyle(0x888888);
+    g.fillCircle(24, 46, 3);
+    g.fillCircle(74, 46, 3);
+
+    g.generateTexture('ambulance', 100, 52);
+    g.destroy();
+}
+
+function createPawPatrolTexture(scene, name, bodyColor, letter) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    // Body
+    g.fillStyle(bodyColor);
+    g.fillRect(6, 16, 20, 20);
+    // Head
+    g.fillStyle(0xddbb88);
+    g.fillRect(8, 4, 16, 14);
+    // Ears
+    g.fillStyle(bodyColor);
+    g.fillRect(6, 0, 6, 8);
+    g.fillRect(20, 0, 6, 8);
+    // Eyes
+    g.fillStyle(0x000000);
+    g.fillRect(11, 8, 3, 3);
+    g.fillRect(18, 8, 3, 3);
+    // Nose
+    g.fillStyle(0x333333);
+    g.fillRect(14, 13, 4, 3);
+    // Legs
+    g.fillStyle(bodyColor);
+    g.fillRect(8, 36, 6, 8);
+    g.fillRect(18, 36, 6, 8);
+    // Paws
+    g.fillStyle(0xddbb88);
+    g.fillRect(7, 42, 8, 4);
+    g.fillRect(17, 42, 8, 4);
+    // Badge/letter
+    g.fillStyle(0xffd700);
+    g.fillCircle(16, 24, 6);
+    g.fillStyle(0x000000);
+    // Simple marker for identification
+    g.fillRect(14, 22, 4, 4);
+
+    g.generateTexture(name, 32, 46);
+    g.destroy();
+}
+
+function createPawBallTexture(scene) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xff4444);
+    g.fillCircle(8, 8, 8);
+    g.fillStyle(0xff8888);
+    g.fillCircle(6, 6, 3);
+    g.generateTexture('paw_ball', 16, 16);
+    g.destroy();
+}
+
 function createBombTexture(scene) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     // Bomb body (black circle)
@@ -337,6 +477,12 @@ class GameScene extends Phaser.Scene {
         createKingWalkTexture(this);
         createBombTexture(this);
         createExplosionTexture(this);
+        createCastleTexture(this);
+        createAmbulanceTexture(this);
+        createPawPatrolTexture(this, 'paw_chase', 0x2266cc, 'C');   // Chase - blue
+        createPawPatrolTexture(this, 'paw_marshall', 0xcc2222, 'M'); // Marshall - red
+        createPawPatrolTexture(this, 'paw_skye', 0xff66aa, 'S');     // Skye - pink
+        createPawBallTexture(this);
 
         // Sky gradient background
         this.cameras.main.setBackgroundColor('#87ceeb');
@@ -450,10 +596,14 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.king, this.groundGroup);
         this.physics.add.collider(this.king, this.platformGroup);
         this.physics.add.collider(this.king, this.policeCars);
+        this.physics.add.collider(this.king, this.ambulances);
 
         // Collision - princess collides with both ground and platforms
         this.physics.add.collider(this.princess, this.groundGroup);
         this.physics.add.collider(this.princess, this.platformGroup);
+
+        // Collide with ambulances
+        this.physics.add.collider(this.princess, this.ambulances);
 
         // Collide with police cars - track when on top
         this.physics.add.collider(this.princess, this.policeCars, (princess, car) => {
@@ -483,6 +633,81 @@ class GameScene extends Phaser.Scene {
             bomb.destroy();
             this.bombCount++;
             this.updateUI();
+        });
+
+        // Castle at the end of the level
+        this.castle = this.add.image(worldWidth - 200, 440, 'castle');
+        this.castle.setScale(1.5);
+        this.castle.setDepth(1);
+        this.castleReached = false;
+
+        // Ambulances - prince can ride these
+        this.ambulances = this.physics.add.group();
+        const ambulancePositions = [600, 1500, 2500, 3800, 5000];
+        for (const ax of ambulancePositions) {
+            const amb = this.ambulances.create(ax, 400, 'ambulance');
+            amb.setScale(1.2);
+            amb.setBounce(0);
+            amb.body.setGravityY(GRAVITY);
+            amb.body.setSize(90, 40);
+            amb.body.setOffset(5, 8);
+            amb.body.setMass(1000);
+        }
+        this.physics.add.collider(this.ambulances, this.groundGroup);
+        this.kingInAmbulance = false;
+        this.currentAmbulance = null;
+
+        // Paw Patrol characters in the sky
+        this.pawPatrolChars = [];
+        this.pawBalls = this.physics.add.group();
+        const pawData = [
+            { x: 400, texture: 'paw_chase' },
+            { x: 1200, texture: 'paw_marshall' },
+            { x: 2000, texture: 'paw_chase' },
+            { x: 2800, texture: 'paw_skye' },
+            { x: 3600, texture: 'paw_marshall' },
+            { x: 4400, texture: 'paw_skye' },
+            { x: 5200, texture: 'paw_chase' },
+        ];
+        for (const pd of pawData) {
+            const paw = this.add.sprite(pd.x, Phaser.Math.Between(60, 140), pd.texture);
+            paw.setScale(1.5);
+            paw.setDepth(2);
+            paw.baseX = pd.x;
+            paw.baseY = paw.y;
+            paw.lastFire = 0;
+            paw.fireInterval = Phaser.Math.Between(2000, 4000);
+            this.pawPatrolChars.push(paw);
+        }
+
+        // Paw ball collisions
+        this.physics.add.collider(this.pawBalls, this.groundGroup, (ball) => {
+            ball.destroy();
+        });
+        this.physics.add.collider(this.pawBalls, this.platformGroup, (ball) => {
+            ball.destroy();
+        });
+        this.physics.add.overlap(this.princess, this.pawBalls, (princess, ball) => {
+            if (this.respawning) return;
+            ball.destroy();
+            this.princessLives--;
+            this.updateUI();
+            if (this.princessLives <= 0) {
+                this.triggerGameOver('The princess was hit too many times!');
+            } else {
+                this.respawnPrincess();
+            }
+        });
+        this.physics.add.overlap(this.king, this.pawBalls, (king, ball) => {
+            if (this.respawning || this.kingInAmbulance) return;
+            ball.destroy();
+            this.kingLives--;
+            this.updateUI();
+            if (this.kingLives <= 0) {
+                this.triggerGameOver('The prince was hit too many times!');
+            } else {
+                this.respawnKing();
+            }
         });
 
         // Space key for using bombs
@@ -692,6 +917,9 @@ class GameScene extends Phaser.Scene {
         }
 
         this.updateKing();
+        this.updateAmbulance(time);
+        this.updatePawPatrol(time);
+        this.checkCastle();
     }
 
     triggerGameOver(reason) {
@@ -849,6 +1077,180 @@ class GameScene extends Phaser.Scene {
             this.king.setTexture('king');
             // Face the princess
             this.king.setFlipX(dx < 0);
+        }
+    }
+
+    updateAmbulance(time) {
+        if (this.castleReached) return;
+
+        // Check if king is close to an ambulance and should auto-enter
+        if (!this.kingInAmbulance) {
+            const kingX = this.king.x;
+            const kingY = this.king.y;
+            this.ambulances.children.iterate((amb) => {
+                if (!amb || !amb.active || this.kingInAmbulance) return;
+                const dist = Phaser.Math.Distance.Between(kingX, kingY, amb.x, amb.y);
+                if (dist < 80 && this.king.body.touching.down) {
+                    // King jumps into ambulance
+                    this.kingInAmbulance = true;
+                    this.currentAmbulance = amb;
+                    this.king.setVisible(false);
+                    this.king.body.enable = false;
+                    amb.setTint(0xffdddd);
+                }
+            });
+        }
+
+        // Ambulance follows police car / princess when king is inside
+        if (this.kingInAmbulance && this.currentAmbulance) {
+            const amb = this.currentAmbulance;
+            const target = this.inCar ? this.currentCar : this.princess;
+            const dx = target.x - amb.x;
+            const followDist = 120;
+
+            if (Math.abs(dx) > followDist) {
+                const speed = this.inCar ? CAR_SPEED * 0.85 : WALK_SPEED * 1.2;
+                amb.setVelocityX(dx > 0 ? speed : -speed);
+                amb.setFlipX(dx < 0);
+            } else {
+                amb.setVelocityX(amb.body.velocity.x * 0.9);
+            }
+
+            // Flash lights periodically
+            if (Math.floor(time / 200) % 2 === 0) {
+                amb.setTint(0xffdddd);
+            } else {
+                amb.setTint(0xddddff);
+            }
+
+            // King exits if princess stops for a while and is close
+            // (King stays in ambulance for the ride)
+        }
+    }
+
+    updatePawPatrol(time) {
+        if (this.castleReached) return;
+
+        for (const paw of this.pawPatrolChars) {
+            // Hover movement
+            paw.x = paw.baseX + Math.sin(time / 1500 + paw.baseX) * 60;
+            paw.y = paw.baseY + Math.cos(time / 1200 + paw.baseX) * 20;
+
+            // Fire balls at princess if she's nearby
+            const distToPrincess = Math.abs(this.princess.x - paw.x);
+            if (distToPrincess < 500 && time > paw.lastFire + paw.fireInterval) {
+                paw.lastFire = time;
+                const ball = this.pawBalls.create(paw.x, paw.y + 20, 'paw_ball');
+                ball.body.setGravityY(200);
+                // Aim toward princess
+                const angle = Phaser.Math.Angle.Between(paw.x, paw.y, this.princess.x, this.princess.y);
+                const speed = 200;
+                ball.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                ball.body.setSize(12, 12);
+                // Auto-destroy after 4 seconds
+                this.time.delayedCall(4000, () => {
+                    if (ball.active) ball.destroy();
+                });
+            }
+        }
+    }
+
+    checkCastle() {
+        if (this.castleReached) return;
+
+        const princessNearCastle = Math.abs(this.princess.x - this.castle.x) < 120;
+        const kingNearCastle = this.kingInAmbulance
+            ? Math.abs(this.currentAmbulance.x - this.castle.x) < 150
+            : Math.abs(this.king.x - this.castle.x) < 150;
+
+        if (princessNearCastle && kingNearCastle) {
+            this.castleReached = true;
+
+            // Exit vehicles
+            if (this.inCar) this.exitCar();
+            if (this.kingInAmbulance) {
+                this.king.setVisible(true);
+                this.king.body.enable = true;
+                this.king.setPosition(this.currentAmbulance.x, this.currentAmbulance.y - 40);
+                this.currentAmbulance.clearTint();
+                this.currentAmbulance.setVelocityX(0);
+                this.kingInAmbulance = false;
+                this.currentAmbulance = null;
+            }
+
+            // Position them at the castle gate
+            this.princess.setVelocity(0, 0);
+            this.king.setVelocity(0, 0);
+            this.princess.setPosition(this.castle.x - 20, 440);
+            this.king.setPosition(this.castle.x + 20, 440);
+
+            // Face each other
+            this.princess.setFlipX(false);
+            this.king.setFlipX(true);
+
+            // Dance animation - they bob and spin
+            this.tweens.add({
+                targets: this.princess,
+                y: 430,
+                duration: 400,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+            });
+            this.tweens.add({
+                targets: this.king,
+                y: 430,
+                duration: 400,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+                delay: 200,
+            });
+            // Sway left-right
+            this.tweens.add({
+                targets: this.princess,
+                x: this.castle.x - 30,
+                duration: 800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+            });
+            this.tweens.add({
+                targets: this.king,
+                x: this.castle.x + 30,
+                duration: 800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+            });
+
+            // Victory text
+            this.cameras.main.startFollow(this.castle, true, 0.1, 0.1);
+            const winText = this.add.text(400, 200, '🏰 They reached the castle! 💃🕺', {
+                fontSize: '32px',
+                fill: '#ffd700',
+                fontStyle: 'bold',
+                stroke: '#000',
+                strokeThickness: 4,
+            });
+            winText.setOrigin(0.5);
+            winText.setScrollFactor(0);
+            winText.setDepth(20);
+
+            const subText = this.add.text(400, 260, 'The princess and prince dance happily ever after!', {
+                fontSize: '18px',
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 3,
+            });
+            subText.setOrigin(0.5);
+            subText.setScrollFactor(0);
+            subText.setDepth(20);
+
+            // Stop paw patrol
+            for (const paw of this.pawPatrolChars) {
+                paw.setVisible(false);
+            }
         }
     }
 
